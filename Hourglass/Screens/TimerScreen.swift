@@ -10,10 +10,48 @@ struct TimerScreen: View {
     @State private var simulation = LiquidSimulation()
     @State private var motion = MotionProvider()
     @State private var flipDetector = FlipDetector()
+    @State private var isEditingDurations = false
+    /// The panel edits this copy; each change is handed to the model, which saves and applies it.
+    @State private var draftSettings = PomodoroSettings()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        ZStack {
+            liveHourglass
+            if isEditingDurations {
+                DurationsPanel(
+                    settings: $draftSettings,
+                    appliesNextSession: model.settingsApplyNextSession,
+                    onDone: { isEditingDurations = false }
+                )
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+        }
+        // Turn everything, panel included, so it reads the right way up after a flip.
+        .rotationEffect(.degrees(model.isTurnedOver ? 180 : 0))
+        .animation(.spring(duration: 0.35), value: isEditingDurations)
+        .background(background)
+        .preferredColorScheme(.dark)
+        .sensoryFeedback(.start, trigger: model.isTurnedOver)
+        .onChange(of: draftSettings) { _, settings in
+            model.updateSettings(settings)
+        }
+        .task { await watchForFlips() }
+        .onAppear { motion.start() }
+        .onDisappear { motion.stop() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                model.refresh()
+                motion.start()
+            } else {
+                motion.stop()
+            }
+        }
+    }
+
+    /// The per-frame part of the screen: liquid, time and controls.
+    private var liveHourglass: some View {
         TimelineView(.animation) { context in
             let now = context.date
             let timer = model.timer
@@ -34,21 +72,6 @@ struct TimerScreen: View {
                     controls(timer: timer)
                 }
                 .padding(.vertical, 24)
-            }
-            .rotationEffect(.degrees(model.isTurnedOver ? 180 : 0))
-        }
-        .background(background)
-        .preferredColorScheme(.dark)
-        .sensoryFeedback(.start, trigger: model.isTurnedOver)
-        .task { await watchForFlips() }
-        .onAppear { motion.start() }
-        .onDisappear { motion.stop() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                model.refresh()
-                motion.start()
-            } else {
-                motion.stop()
             }
         }
     }
@@ -102,16 +125,18 @@ struct TimerScreen: View {
     private func controls(timer: PomodoroTimer) -> some View {
         HStack(spacing: 24) {
             Button {
-                model.reset()
+                if !isEditingDurations {
+                    draftSettings = model.settings
+                }
+                isEditingDurations.toggle()
             } label: {
-                Image(systemName: "arrow.counterclockwise")
+                Image(systemName: "timer")
                     .font(.title2)
                     .frame(width: 56, height: 56)
             }
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
-            .disabled(timer.state == .idle)
-            .accessibilityLabel("Reset")
+            .accessibilityLabel("Durations")
 
             Button {
                 model.toggle()
@@ -124,6 +149,18 @@ struct TimerScreen: View {
             .buttonBorderShape(.circle)
             .tint(LiquidPalette.forPhase(timer.phase).depth)
             .accessibilityLabel(timer.isRunning ? "Pause" : "Start")
+
+            Button {
+                model.reset()
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.title2)
+                    .frame(width: 56, height: 56)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .disabled(timer.state == .idle)
+            .accessibilityLabel("Reset")
         }
     }
 }

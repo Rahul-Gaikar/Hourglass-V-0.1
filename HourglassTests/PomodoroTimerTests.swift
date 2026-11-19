@@ -108,3 +108,17 @@ struct PomodoroTimerTests {
         #expect(timer.remaining(at: start) == 3 * 60)
     }
 }
+
+struct PomodoroTimerNextPhaseTests {
+    @Test func nextPhaseMatchesWhatCompletionActuallyDoes() {
+        var timer = PomodoroTimer(settings: PomodoroSettings(sessionsBeforeLongBreak: 2))
+        var now = Date(timeIntervalSinceReferenceDate: 1_000_000)
+        for _ in 0..<6 {
+            let predicted = timer.nextPhase
+            timer.start(at: now)
+            now = now.addingTimeInterval(timer.phaseDuration)
+            timer.completeIfFinished(at: now)
+            #expect(timer.phase == predicted)
+        }
+    }
+}
