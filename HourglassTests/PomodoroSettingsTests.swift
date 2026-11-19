@@ -24,3 +24,10 @@ struct PomodoroSettingsTests {
         #expect(settings.effectiveSessionsBeforeLongBreak == expected)
     }
 }
+
+struct DurationsPanelTextTests {
+    @Test func sessionCountIsPluralisedCorrectly() {
+        #expect(DurationsPanel.sessionsText(1) == "1 focus session")
+        #expect(DurationsPanel.sessionsText(4) == "4 focus sessions")
+    }
+}

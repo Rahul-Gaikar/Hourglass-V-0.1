@@ -1,17 +1,39 @@
 import Foundation
 import Observation
 
-/// Owns the running pomodoro and makes sure a phase advances when its time is up.
+/// Owns the running pomodoro and the user's durations, and makes sure a phase advances when its time is up.
 @MainActor
 @Observable
 final class TimerModel {
+    private static let settingsKey = "pomodoroSettings"
+
     private(set) var timer: PomodoroTimer
+    /// The durations the user has chosen. They reach the timer only while it's idle, so editing them
+    /// mid-session never makes the liquid jump; otherwise they apply from the next session.
+    private(set) var settings: PomodoroSettings
     /// Whether the hourglass is currently drawn upside down, because the phone was turned over to start.
     private(set) var isTurnedOver = false
+
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var completionTask: Task<Void, Never>?
 
-    init(timer: PomodoroTimer = PomodoroTimer()) {
-        self.timer = timer
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let settings = Self.loadSettings(from: defaults)
+        self.settings = settings
+        self.timer = PomodoroTimer(settings: settings)
+    }
+
+    /// Whether changed settings will wait for the current session to end.
+    var settingsApplyNextSession: Bool {
+        timer.state != .idle
+    }
+
+    func updateSettings(_ newSettings: PomodoroSettings) {
+        guard newSettings != settings else { return }
+        settings = newSettings
+        saveSettings()
+        applySettingsIfIdle()
     }
 
     /// Starts or resumes when stopped, pauses when running.
@@ -37,12 +59,19 @@ final class TimerModel {
     func reset() {
         timer.reset()
         completionTask?.cancel()
+        applySettingsIfIdle()
     }
 
     /// Advances the phase if it has ended. Call when the app returns to the foreground.
     func refresh(at now: Date = .now) {
         timer.completeIfFinished(at: now)
+        applySettingsIfIdle()
         scheduleCompletion(from: now)
+    }
+
+    private func applySettingsIfIdle() {
+        guard timer.state == .idle, timer.settings != settings else { return }
+        timer.settings = settings
     }
 
     private func scheduleCompletion(from now: Date) {
@@ -52,7 +81,24 @@ final class TimerModel {
         completionTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
-            self?.timer.completeIfFinished(at: .now)
+            self?.refresh()
         }
+    }
+
+    // MARK: - Persistence
+
+    /// Saved settings, or the defaults when nothing is saved or the data can't be read.
+    private static func loadSettings(from defaults: UserDefaults) -> PomodoroSettings {
+        guard let data = defaults.data(forKey: settingsKey),
+            let settings = try? JSONDecoder().decode(PomodoroSettings.self, from: data)
+        else { return PomodoroSettings() }
+        return settings
+    }
+
+    private func saveSettings() {
+        // Encoding a struct of plain integers can't realistically fail; if it ever did, the
+        // change still applies for this launch and the previous saved value is kept.
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        defaults.set(data, forKey: Self.settingsKey)
     }
 }
