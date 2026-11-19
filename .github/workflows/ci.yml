@@ -34,7 +34,7 @@ jobs:
         run: brew install xcodegen
 
       - name: Lint
-        run: xcrun swift-format lint --strict --recursive Hourglass HourglassTests
+        run: xcrun swift-format lint --strict --recursive Hourglass HourglassTests HourglassWidgets Shared
 
       - name: Generate Xcode project
         run: xcodegen generate
