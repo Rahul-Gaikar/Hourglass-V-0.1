@@ -286,3 +286,61 @@ struct TimerModelHistoryTests {
         #expect(history.recorded.isEmpty)
     }
 }
+
+@MainActor
+struct TimerModelRestoreTests {
+    private let start = Date(timeIntervalSinceReferenceDate: 1_000_000)
+
+    @Test func aRunningSessionSurvivesARelaunch() {
+        let defaults = makeTestDefaults()
+        let firstLaunch = makeModel(defaults: defaults)
+        firstLaunch.flip(at: start)
+
+        let relaunch = makeModel(defaults: defaults)
+        #expect(relaunch.timer == firstLaunch.timer)
+        #expect(relaunch.isTurnedOver)
+        #expect(relaunch.timer.remaining(at: start.addingTimeInterval(60)) == 24 * 60)
+        relaunch.reset()
+    }
+
+    @Test func aSessionThatEndedWhileClosedIsCompletedAndRecordedOnLaunch() {
+        let defaults = makeTestDefaults()
+        makeModel(defaults: defaults).flip(at: start)
+
+        let history = FakeHistory()
+        let relaunch = makeModel(defaults: defaults, history: history)
+        relaunch.refresh(at: start.addingTimeInterval(2 * 60 * 60))
+
+        #expect(relaunch.timer.phase == .shortBreak)
+        #expect(relaunch.timer.state == .idle)
+        #expect(history.recorded.map(\.endedAt) == [start.addingTimeInterval(25 * 60)])
+    }
+
+    @Test func aPausedSessionStaysPausedAcrossARelaunch() {
+        let defaults = makeTestDefaults()
+        let firstLaunch = makeModel(defaults: defaults)
+        firstLaunch.toggle(at: start)
+        firstLaunch.toggle(at: start.addingTimeInterval(5 * 60))
+
+        #expect(makeModel(defaults: defaults).timer.state == .paused(remaining: 20 * 60))
+    }
+
+    @Test func unreadableSavedSessionStartsFresh() {
+        let defaults = makeTestDefaults()
+        defaults.set(Data("not json".utf8), forKey: "currentSession")
+        let model = makeModel(defaults: defaults)
+        #expect(model.timer.state == .idle)
+        #expect(model.timer.phase == .focus)
+        #expect(!model.isTurnedOver)
+    }
+
+    @Test func idleRestoredTimerUsesTheCurrentDurations() {
+        let defaults = makeTestDefaults()
+        let firstLaunch = makeModel(defaults: defaults)
+        firstLaunch.toggle(at: start)
+        firstLaunch.updateSettings(PomodoroSettings(focusMinutes: 10))
+        firstLaunch.reset(at: start)
+
+        #expect(makeModel(defaults: defaults).timer.remaining(at: start) == 10 * 60)
+    }
+}

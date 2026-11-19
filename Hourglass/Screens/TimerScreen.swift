@@ -50,7 +50,13 @@ struct TimerScreen: View {
             model.updateSettings(settings)
         }
         .task { await watchForFlips() }
-        .onAppear { motion.start() }
+        .onAppear {
+            // Completes a session restored from a previous launch if it ended while the app was closed,
+            // and re-schedules its alert and Live Activity otherwise. (`scenePhase` doesn't report the
+            // initial `.active`, so the onChange below doesn't cover launch.)
+            model.refresh()
+            motion.start()
+        }
         .onDisappear { motion.stop() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

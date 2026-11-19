@@ -6,6 +6,13 @@ import Observation
 @Observable
 final class TimerModel {
     private static let settingsKey = "pomodoroSettings"
+    private static let sessionKey = "currentSession"
+
+    /// What's saved after every change so a session survives the app being killed.
+    private struct SavedSession: Codable {
+        var timer: PomodoroTimer
+        var isTurnedOver: Bool
+    }
 
     private(set) var timer: PomodoroTimer
     /// The durations the user has chosen. They reach the timer only while it's idle, so editing them
@@ -34,7 +41,19 @@ final class TimerModel {
         self.liveActivity = liveActivity ?? SessionActivityController()
         let settings = Self.loadSettings(from: defaults)
         self.settings = settings
-        self.timer = PomodoroTimer(settings: settings)
+        if let saved = Self.loadSession(from: defaults) {
+            // Picks up where the last launch left off. A phase that ended meanwhile is completed
+            // (and recorded) by the first `refresh()`.
+            var timer = saved.timer
+            if timer.state == .idle {
+                // Between sessions the user's current durations always apply.
+                timer.settings = settings
+            }
+            self.timer = timer
+            self.isTurnedOver = saved.isTurnedOver
+        } else {
+            self.timer = PomodoroTimer(settings: settings)
+        }
     }
 
     /// Whether changed settings will wait for the current session to end.
@@ -92,6 +111,7 @@ final class TimerModel {
     /// session is running or paused, and the "session ended" alert while it's running.
     /// When a session ends with the app open, the alert is cancelled so it doesn't pop up over the hourglass.
     private func syncOutsideViews(at now: Date) {
+        saveSession()
         liveActivity.show(HourglassActivityAttributes.ContentState(timer: timer, now: now))
         guard case .running(let endDate) = timer.state else {
             notifier.cancelSessionEnd()
@@ -126,6 +146,19 @@ final class TimerModel {
             let settings = try? JSONDecoder().decode(PomodoroSettings.self, from: data)
         else { return PomodoroSettings() }
         return settings
+    }
+
+    /// The session saved by the last launch, or `nil` when there's none or it can't be read.
+    private static func loadSession(from defaults: UserDefaults) -> SavedSession? {
+        guard let data = defaults.data(forKey: sessionKey) else { return nil }
+        return try? JSONDecoder().decode(SavedSession.self, from: data)
+    }
+
+    private func saveSession() {
+        let saved = SavedSession(timer: timer, isTurnedOver: isTurnedOver)
+        // As with settings: if encoding ever failed, the previous save is kept.
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        defaults.set(data, forKey: Self.sessionKey)
     }
 
     private func saveSettings() {
