@@ -33,10 +33,9 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Hourglass
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: >-
-          UIInterfaceOrientationPortrait
-          UIInterfaceOrientationLandscapeLeft
-          UIInterfaceOrientationLandscapeRight
+        # Portrait only: the app follows the phone's physical orientation itself (flip to start),
+        # so system rotation would fight it.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: >-
           UIInterfaceOrientationPortrait
           UIInterfaceOrientationPortraitUpsideDown

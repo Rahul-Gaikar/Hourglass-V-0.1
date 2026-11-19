@@ -37,7 +37,7 @@ when a decision is made, record it here in the same commit as the change.
 
 TODO — record each choice with a one-line reason in the decision log (§7).
 
-- Platform: **native iOS**, minimum **iOS 26.0** (required for native Liquid Glass APIs), iPhone + iPad (template default — revisit).
+- Platform: **native iOS**, minimum **iOS 26.0** (required for native Liquid Glass APIs), iPhone (portrait only) + iPad (template default — revisit).
 - Language / framework: **Swift 6** (strict concurrency) + **SwiftUI**.
 - Project generation: **XcodeGen** — `project.yml` is the source of truth; `Hourglass.xcodeproj` is generated and git-ignored.
 - Tests: **Swift Testing** (`HourglassTests` target, hosted in the app).
@@ -51,7 +51,11 @@ TODO — record each choice with a one-line reason in the decision log (§7).
 **Layout**
 ```
 project.yml            # XcodeGen spec (targets, settings, schemes)
-Hourglass/App/         # app entry point and root view
+Hourglass/App/         # app entry point
+Hourglass/Screens/     # full screens (TimerScreen)
+Hourglass/Timer/       # pomodoro state machine + settings (pure, no UI)
+Hourglass/Liquid/      # hourglass geometry, slosh physics, Canvas renderer, glass view
+Hourglass/Motion/      # Core Motion gravity reader, flip detection
 Hourglass/Resources/   # asset catalog
 HourglassTests/        # unit tests (Swift Testing)
 .github/workflows/     # CI
@@ -138,6 +142,7 @@ Applies to all code, whether written by a person or by Claude.
 
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
+- 2026-11-19 — Flip to start: an idle hourglass shows drained; turning the phone over (held ~0.3 s) starts the next session and the UI rotates 180° with it. Flips while running/paused are ignored. iPhone locked to portrait so system rotation doesn't fight the physical flip.
 - 2026-11-19 — Generate the Xcode project with XcodeGen and don't commit `.xcodeproj` — avoids `project.pbxproj` merge conflicts with two people pushing to `main`.
 - 2026-11-19 — Product: immersive pomodoro timer; liquid (not sand) hourglass, tilt-reactive, flip to start; v0.1 includes custom durations, notifications, Live Activity, history — Dinkar.
 - 2026-11-19 — Minimum iOS 26 — use native Liquid Glass APIs instead of maintaining an imitation for older iOS — Dinkar.
@@ -148,4 +153,9 @@ Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
 - Never edit `Hourglass.xcodeproj` settings by hand — they're lost on the next `xcodegen generate`. Change `project.yml` instead. New files under `Hourglass/` are picked up automatically after regenerating.
 - Claude cloud sessions run on Linux: they can write Swift but can't build or run it. CI (macOS runner) is the check for that work.
+- Keep logic out of views: geometry, physics and timer code are plain value types with no actor
+  isolation so they're unit-testable and can run inside `Canvas`. Views only wire them together.
+- CI uploads a Simulator screenshot (`hourglass-screenshot` artifact) — the quickest way to eyeball
+  UI changes made from a Claude cloud session. The Simulator has no motion sensors, so tilt can only
+  be judged on a real device.
 - Signing: set `DEVELOPMENT_TEAM` in `project.yml` once we have the team ID (it isn't a secret).

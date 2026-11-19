@@ -1,7 +1,9 @@
 name: CI
 
 on:
+  # Branch pushes are covered by their pull request; avoid running everything twice.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -50,8 +52,26 @@ jobs:
                      for d in ds if d["name"].startswith("iPhone")))
           ')
           echo "Using simulator $DEVICE_ID"
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           xcodebuild test \
             -project Hourglass.xcodeproj \
             -scheme Hourglass \
             -destination "id=$DEVICE_ID" \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Screenshot the app
+        run: |
+          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" build/Build/Products/Debug-iphonesimulator/Hourglass.app
+          xcrun simctl launch "$DEVICE_ID" app.hourglass.Hourglass
+          sleep 5
+          xcrun simctl io "$DEVICE_ID" screenshot hourglass.png
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: hourglass-screenshot
+          path: hourglass.png
+          if-no-files-found: warn

@@ -4,7 +4,7 @@ import SwiftUI
 struct HourglassApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            TimerScreen()
         }
     }
 }
