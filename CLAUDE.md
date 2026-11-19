@@ -8,15 +8,23 @@ when a decision is made, record it here in the same commit as the change.
 
 ## 1. Project
 
-**Hourglass (v0.1)** — early stage. The repository currently contains only this file and `README.md`.
+**Hourglass (v0.1)** — an immersive pomodoro timer for iPhone.
 
-> TODO (team): fill in the sections below as soon as they're decided. Claude must not invent
-> answers to anything marked TODO — ask instead.
+> Claude must not invent answers to anything marked TODO — ask instead.
 
-- **What it is:** TODO — one-paragraph description of the product.
+- **What it is:** a pomodoro (focus / break) timer where the whole iPhone screen *is* the hourglass.
+  The hourglass is rendered in Apple's **Liquid Glass** style and holds a **liquid, not sand**, which
+  drains from the top bulb to the bottom as time passes.
 - **Who it's for:** TODO — target users.
-- **v0.1 scope:** TODO — the smallest thing we ship first.
-- **Out of scope for v0.1:** TODO.
+- **v0.1 scope:**
+  - Liquid hourglass that **reacts to tilt** (device motion) and drains with elapsed time.
+  - **Flip the phone upside down to start** a session, like turning a real hourglass (with a tap
+    fallback for accessibility).
+  - Pomodoro cycle: focus → short break, long break every N focus sessions; **custom durations**.
+  - **Local notification** when a session ends while the app is in the background.
+  - **Live Activity** countdown on the Lock Screen / Dynamic Island.
+  - **Session history** of completed pomodoros, stored on-device (SwiftData).
+- **Out of scope for v0.1:** TODO (proposed: accounts, cloud sync, iPad-specific layout, Apple Watch).
 
 ## 2. Team
 
@@ -29,24 +37,41 @@ when a decision is made, record it here in the same commit as the change.
 
 TODO — record each choice with a one-line reason in the decision log (§7).
 
-- Language / framework: TODO
-- Database: TODO
-- Auth: TODO
-- Hosting / deploy: TODO
-- Package manager: TODO
+- Platform: **native iOS**, minimum **iOS 26.0** (required for native Liquid Glass APIs), iPhone + iPad (template default — revisit).
+- Language / framework: **Swift 6** (strict concurrency) + **SwiftUI**.
+- Project generation: **XcodeGen** — `project.yml` is the source of truth; `Hourglass.xcodeproj` is generated and git-ignored.
+- Tests: **Swift Testing** (`HourglassTests` target, hosted in the app).
+- Lint / format: **swift-format** (ships with Xcode; config in `.swift-format`).
+- CI: **GitHub Actions** on `macos-15` — lint, generate, build, test on every push.
+- Package manager: **Swift Package Manager** (declared in `project.yml` when needed).
+- Database: **SwiftData**, on-device only (session history).
+- Auth / backend: TODO (none proposed for v0.1).
+- Distribution: TestFlight → App Store. Needs an Apple Developer account; bundle ID prefix `app.hourglass` is a placeholder (TODO: confirm).
+
+**Layout**
+```
+project.yml            # XcodeGen spec (targets, settings, schemes)
+Hourglass/App/         # app entry point and root view
+Hourglass/Resources/   # asset catalog
+HourglassTests/        # unit tests (Swift Testing)
+.github/workflows/     # CI
+```
 
 ## 4. Commands
 
-TODO — add once the project is scaffolded. Keep this list accurate; Claude uses it to verify work.
+Keep this list accurate; Claude uses it to verify work. All require macOS with **Xcode 26+** (iOS 26 SDK).
 
 ```bash
-# install:   TODO
-# dev:       TODO
-# test:      TODO
-# lint:      TODO
-# typecheck: TODO
-# build:     TODO
+# install:   brew install xcodegen
+# generate:  xcodegen generate            # after every pull or project.yml edit
+# dev:       open Hourglass.xcodeproj     # then Run (⌘R) on a simulator
+# lint:      xcrun swift-format lint --strict --recursive Hourglass HourglassTests
+# format:    xcrun swift-format format --in-place --recursive Hourglass HourglassTests
+# test:      xcodebuild test -project Hourglass.xcodeproj -scheme Hourglass -destination 'platform=iOS Simulator,name=<an installed iPhone>'
+# build:     same as test, with `build` instead of `test`
 ```
+
+Typecheck happens as part of build/test (Swift compiler).
 
 ## 5. How we work together
 
@@ -113,8 +138,14 @@ Applies to all code, whether written by a person or by Claude.
 
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
+- 2026-11-19 — Generate the Xcode project with XcodeGen and don't commit `.xcodeproj` — avoids `project.pbxproj` merge conflicts with two people pushing to `main`.
+- 2026-11-19 — Product: immersive pomodoro timer; liquid (not sand) hourglass, tilt-reactive, flip to start; v0.1 includes custom durations, notifications, Live Activity, history — Dinkar.
+- 2026-11-19 — Minimum iOS 26 — use native Liquid Glass APIs instead of maintaining an imitation for older iOS — Dinkar.
+- 2026-11-19 — Native iOS with SwiftUI + Swift 6 — native feel, least code, SwiftData available on 17+.
 - 2026-11-19 — Work directly on `main`; shared CLAUDE.md as the single source of project context — keep collaboration simple for a two-person team.
 
 ## 8. Gotchas / notes
 
-_Nothing yet. Add surprises, environment quirks and "don't do X because Y" here._
+- Never edit `Hourglass.xcodeproj` settings by hand — they're lost on the next `xcodegen generate`. Change `project.yml` instead. New files under `Hourglass/` are picked up automatically after regenerating.
+- Claude cloud sessions run on Linux: they can write Swift but can't build or run it. CI (macOS runner) is the check for that work.
+- Signing: set `DEVELOPMENT_TEAM` in `project.yml` once we have the team ID (it isn't a secret).
