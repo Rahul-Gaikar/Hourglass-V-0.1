@@ -16,12 +16,22 @@ final class TimerModel {
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let notifier: any SessionNotifying
+    @ObservationIgnored private let liveActivity: any SessionActivityControlling
+    @ObservationIgnored private let history: (any SessionRecording)?
     @ObservationIgnored private var completionTask: Task<Void, Never>?
 
-    /// `notifier` defaults to real local notifications; tests pass a fake.
-    init(defaults: UserDefaults = .standard, notifier: (any SessionNotifying)? = nil) {
+    /// `notifier` and `liveActivity` default to the real system services; tests pass fakes.
+    /// Completed sessions are recorded in `history` when one is given (previews run without).
+    init(
+        defaults: UserDefaults = .standard,
+        notifier: (any SessionNotifying)? = nil,
+        liveActivity: (any SessionActivityControlling)? = nil,
+        history: (any SessionRecording)? = nil
+    ) {
         self.defaults = defaults
+        self.history = history
         self.notifier = notifier ?? SessionNotifier()
+        self.liveActivity = liveActivity ?? SessionActivityController()
         let settings = Self.loadSettings(from: defaults)
         self.settings = settings
         self.timer = PomodoroTimer(settings: settings)
@@ -47,7 +57,7 @@ final class TimerModel {
             timer.start(at: now)
         }
         scheduleCompletion(from: now)
-        syncNotification()
+        syncOutsideViews(at: now)
     }
 
     /// Turning the phone over starts the next session, like turning over a real hourglass.
@@ -58,27 +68,31 @@ final class TimerModel {
         isTurnedOver.toggle()
         timer.start(at: now)
         scheduleCompletion(from: now)
-        syncNotification()
+        syncOutsideViews(at: now)
     }
 
-    func reset() {
+    func reset(at now: Date = .now) {
         timer.reset()
         completionTask?.cancel()
         applySettingsIfIdle()
-        syncNotification()
+        syncOutsideViews(at: now)
     }
 
     /// Advances the phase if it has ended. Call when the app returns to the foreground.
     func refresh(at now: Date = .now) {
-        timer.completeIfFinished(at: now)
+        if let completed = timer.completeIfFinished(at: now) {
+            history?.record(completed)
+        }
         applySettingsIfIdle()
         scheduleCompletion(from: now)
-        syncNotification()
+        syncOutsideViews(at: now)
     }
 
-    /// Keeps the "session ended" alert matching the timer: pending while running, gone otherwise.
-    /// When a session ends with the app open, this cancels the alert so it doesn't pop up over the hourglass.
-    private func syncNotification() {
+    /// Keeps everything shown outside the app in step with the timer: the Live Activity while a
+    /// session is running or paused, and the "session ended" alert while it's running.
+    /// When a session ends with the app open, the alert is cancelled so it doesn't pop up over the hourglass.
+    private func syncOutsideViews(at now: Date) {
+        liveActivity.show(HourglassActivityAttributes.ContentState(timer: timer, now: now))
         guard case .running(let endDate) = timer.state else {
             notifier.cancelSessionEnd()
             return

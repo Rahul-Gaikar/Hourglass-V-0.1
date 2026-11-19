@@ -44,7 +44,7 @@ TODO — record each choice with a one-line reason in the decision log (§7).
 - Lint / format: **swift-format** (ships with Xcode; config in `.swift-format`).
 - CI: **GitHub Actions** on `macos-15` — lint, generate, build, test on every push.
 - Package manager: **Swift Package Manager** (declared in `project.yml` when needed).
-- Database: **SwiftData**, on-device only (session history).
+- Database: **SwiftData**, on-device only (session history). Schema v1 = `FocusSession { endedAt, duration }`; any change to it needs a `VersionedSchema` + migration plan.
 - Auth / backend: TODO (none proposed for v0.1).
 - Distribution: TestFlight → App Store. Needs an Apple Developer account; bundle ID prefix `app.hourglass` is a placeholder (TODO: confirm).
 
@@ -52,11 +52,15 @@ TODO — record each choice with a one-line reason in the decision log (§7).
 ```
 project.yml            # XcodeGen spec (targets, settings, schemes)
 Hourglass/App/         # app entry point
-Hourglass/Screens/     # full screens and panels (TimerScreen, DurationsPanel)
+Hourglass/Screens/     # full screens and panels (TimerScreen, DurationsPanel, HistoryPanel)
 Hourglass/Timer/       # pomodoro state machine + settings (pure, no UI)
 Hourglass/Liquid/      # hourglass geometry, slosh physics, Canvas renderer, glass view
 Hourglass/Motion/      # Core Motion gravity reader, flip detection
 Hourglass/Notifications/ # end-of-session local notification (behind a protocol for tests)
+Hourglass/LiveActivity/  # starts/updates/ends the Live Activity (behind a protocol for tests)
+Hourglass/History/     # SwiftData FocusSession model, recorder (behind a protocol), per-day summary
+HourglassWidgets/      # widget extension: Lock Screen + Dynamic Island Live Activity UI
+Shared/                # compiled into BOTH the app and the widget (activity attributes, phase, palette, time label)
 Hourglass/Resources/   # asset catalog
 HourglassTests/        # unit tests (Swift Testing)
 .github/workflows/     # CI
@@ -70,8 +74,8 @@ Keep this list accurate; Claude uses it to verify work. All require macOS with *
 # install:   brew install xcodegen
 # generate:  xcodegen generate            # after every pull or project.yml edit
 # dev:       open Hourglass.xcodeproj     # then Run (⌘R) on a simulator
-# lint:      xcrun swift-format lint --strict --recursive Hourglass HourglassTests
-# format:    xcrun swift-format format --in-place --recursive Hourglass HourglassTests
+# lint:      xcrun swift-format lint --strict --recursive Hourglass HourglassTests HourglassWidgets Shared
+# format:    xcrun swift-format format --in-place --recursive Hourglass HourglassTests HourglassWidgets Shared
 # test:      xcodebuild test -project Hourglass.xcodeproj -scheme Hourglass -destination 'platform=iOS Simulator,name=<an installed iPhone>'
 # build:     same as test, with `build` instead of `test`
 ```
@@ -143,6 +147,8 @@ Applies to all code, whether written by a person or by Claude.
 
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
+- 2026-11-19 — Session history: each completed *focus* session (breaks aren't kept) is saved to SwiftData with its real end time and length, recorded where the timer advances. A glass "N today" button opens a 7-day History panel inside the rotating screen. If the store can't open, an in-memory store keeps the app usable and the file is left untouched.
+- 2026-11-19 — Live Activity: a widget extension (`HourglassWidgets`) shows phase, a system-driven countdown and a draining bar while a session runs or is paused; it ends on reset/completion, goes stale at the end date (shows "Session complete"), and leftovers are cleared on relaunch. Types the app and widget both need live in `Shared/`.
 - 2026-11-19 — End-of-session alert: one local notification scheduled for the session's end date whenever the timer runs, cancelled on pause/reset or when the session ends with the app open (no banner over the hourglass). Permission is asked on the first start, not at launch; refusal just means no alerts.
 - 2026-11-19 — Custom durations: edited in a glass panel drawn inside the (rotatable) timer screen rather than a sheet, so it reads correctly after a flip; saved as JSON in UserDefaults; changes made mid-session apply from the next session so the liquid never jumps.
 - 2026-11-19 — Flip to start: an idle hourglass shows drained; turning the phone over (held ~0.3 s) starts the next session and the UI rotates 180° with it. Flips while running/paused are ignored. iPhone locked to portrait so system rotation doesn't fight the physical flip.
@@ -161,4 +167,12 @@ Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 - CI uploads a Simulator screenshot (`hourglass-screenshot` artifact) — the quickest way to eyeball
   UI changes made from a Claude cloud session. The Simulator has no motion sensors, so tilt can only
   be judged on a real device.
+- Swift Testing: when comparing an **optional** `TimeInterval` in `#expect`, write the expected value as
+  `TimeInterval(25 * 60)`, not `25 * 60`. Inside the macro the literal is typed as `Int`, so the check
+  fails even though both print as 1500. Non-optional comparisons infer `Double` and are fine.
+- The running timer isn't persisted yet: force-quitting mid-session loses that session (and it won't
+  reach history). Persisting `PomodoroTimer` (it's already `Codable`) is the fix.
+- `Shared/` is compiled into two targets — keep it free of app-only types (e.g. `PomodoroTimer`). App-only
+  conveniences on shared types go in the app (see `Hourglass/LiveActivity/PomodoroTimer+Activity.swift`).
+- `HourglassWidgets/Info.plist` is generated by XcodeGen from `project.yml` and git-ignored.
 - Signing: set `DEVELOPMENT_TEAM` in `project.yml` once we have the team ID (it isn't a secret).
