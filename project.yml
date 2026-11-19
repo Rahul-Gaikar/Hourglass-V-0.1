@@ -9,7 +9,7 @@ options:
   # it cannot be changed once the app exists in App Store Connect.
   bundleIdPrefix: app.hourglass
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
   createIntermediateGroups: true
 
 settings:

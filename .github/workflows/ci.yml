@@ -18,8 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
+      - name: Select Xcode 26
+        run: |
+          # Liquid Glass needs the iOS 26 SDK. Pick the newest stable Xcode 26.x on the runner.
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -viE 'beta|release_candidate|_rc' | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No stable Xcode 26 found on this runner"; ls /Applications | grep -i xcode; exit 1
+          fi
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -32,11 +39,14 @@ jobs:
 
       - name: Build and test
         run: |
-          # Pick any available iPhone simulator so CI doesn't break when the runner's Xcode changes.
+          # Pick any available iOS 26+ iPhone simulator so CI doesn't break when the runner image changes.
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
-          import json, sys
+          import json, re, sys
           devices = json.load(sys.stdin)["devices"]
-          print(next(d["udid"] for runtime, ds in devices.items() if "iOS" in runtime
+          def ios_major(runtime):
+              match = re.search(r"iOS-(\d+)", runtime)
+              return int(match.group(1)) if match else 0
+          print(next(d["udid"] for runtime, ds in devices.items() if ios_major(runtime) >= 26
                      for d in ds if d["name"].startswith("iPhone")))
           ')
           echo "Using simulator $DEVICE_ID"

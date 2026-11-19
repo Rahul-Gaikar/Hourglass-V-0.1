@@ -8,15 +8,23 @@ when a decision is made, record it here in the same commit as the change.
 
 ## 1. Project
 
-**Hourglass (v0.1)** — early stage. A native iOS app (SwiftUI); the project is scaffolded but the product itself is not yet defined.
+**Hourglass (v0.1)** — an immersive pomodoro timer for iPhone.
 
-> TODO (team): fill in the sections below as soon as they're decided. Claude must not invent
-> answers to anything marked TODO — ask instead.
+> Claude must not invent answers to anything marked TODO — ask instead.
 
-- **What it is:** TODO — one-paragraph description of the product.
+- **What it is:** a pomodoro (focus / break) timer where the whole iPhone screen *is* the hourglass.
+  The hourglass is rendered in Apple's **Liquid Glass** style and holds a **liquid, not sand**, which
+  drains from the top bulb to the bottom as time passes.
 - **Who it's for:** TODO — target users.
-- **v0.1 scope:** TODO — the smallest thing we ship first.
-- **Out of scope for v0.1:** TODO.
+- **v0.1 scope:**
+  - Liquid hourglass that **reacts to tilt** (device motion) and drains with elapsed time.
+  - **Flip the phone upside down to start** a session, like turning a real hourglass (with a tap
+    fallback for accessibility).
+  - Pomodoro cycle: focus → short break, long break every N focus sessions; **custom durations**.
+  - **Local notification** when a session ends while the app is in the background.
+  - **Live Activity** countdown on the Lock Screen / Dynamic Island.
+  - **Session history** of completed pomodoros, stored on-device (SwiftData).
+- **Out of scope for v0.1:** TODO (proposed: accounts, cloud sync, iPad-specific layout, Apple Watch).
 
 ## 2. Team
 
@@ -29,14 +37,14 @@ when a decision is made, record it here in the same commit as the change.
 
 TODO — record each choice with a one-line reason in the decision log (§7).
 
-- Platform: **native iOS**, minimum iOS 17.0, iPhone + iPad (template default — revisit).
+- Platform: **native iOS**, minimum **iOS 26.0** (required for native Liquid Glass APIs), iPhone + iPad (template default — revisit).
 - Language / framework: **Swift 6** (strict concurrency) + **SwiftUI**.
 - Project generation: **XcodeGen** — `project.yml` is the source of truth; `Hourglass.xcodeproj` is generated and git-ignored.
 - Tests: **Swift Testing** (`HourglassTests` target, hosted in the app).
-- Lint / format: **swift-format** (ships with Xcode 16+; config in `.swift-format`).
+- Lint / format: **swift-format** (ships with Xcode; config in `.swift-format`).
 - CI: **GitHub Actions** on `macos-15` — lint, generate, build, test on every push.
 - Package manager: **Swift Package Manager** (declared in `project.yml` when needed).
-- Database: TODO (SwiftData proposed for on-device storage).
+- Database: **SwiftData**, on-device only (session history).
 - Auth / backend: TODO (none proposed for v0.1).
 - Distribution: TestFlight → App Store. Needs an Apple Developer account; bundle ID prefix `app.hourglass` is a placeholder (TODO: confirm).
 
@@ -51,7 +59,7 @@ HourglassTests/        # unit tests (Swift Testing)
 
 ## 4. Commands
 
-Keep this list accurate; Claude uses it to verify work. All require macOS with Xcode 16+.
+Keep this list accurate; Claude uses it to verify work. All require macOS with **Xcode 26+** (iOS 26 SDK).
 
 ```bash
 # install:   brew install xcodegen
@@ -131,7 +139,9 @@ Applies to all code, whether written by a person or by Claude.
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
 - 2026-11-19 — Generate the Xcode project with XcodeGen and don't commit `.xcodeproj` — avoids `project.pbxproj` merge conflicts with two people pushing to `main`.
-- 2026-11-19 — Native iOS with SwiftUI + Swift 6, min iOS 17 — native feel, least code, SwiftData available on 17+.
+- 2026-11-19 — Product: immersive pomodoro timer; liquid (not sand) hourglass, tilt-reactive, flip to start; v0.1 includes custom durations, notifications, Live Activity, history — Dinkar.
+- 2026-11-19 — Minimum iOS 26 — use native Liquid Glass APIs instead of maintaining an imitation for older iOS — Dinkar.
+- 2026-11-19 — Native iOS with SwiftUI + Swift 6 — native feel, least code, SwiftData available on 17+.
 - 2026-11-19 — Work directly on `main`; shared CLAUDE.md as the single source of project context — keep collaboration simple for a two-person team.
 
 ## 8. Gotchas / notes
