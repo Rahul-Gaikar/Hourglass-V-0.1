@@ -1,0 +1,70 @@
+# XcodeGen spec — the source of truth for the Xcode project.
+# Hourglass.xcodeproj is generated from this file and is NOT committed
+# (avoids project.pbxproj merge conflicts). Run `xcodegen generate` after
+# pulling or after editing this file.
+name: Hourglass
+
+options:
+  # TODO(team): confirm the bundle ID prefix before the first TestFlight build;
+  # it cannot be changed once the app exists in App Store Connect.
+  bundleIdPrefix: app.hourglass
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Set to the team's Apple Developer Team ID (not a secret) to enable signing.
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Hourglass:
+    type: application
+    platform: iOS
+    sources:
+      - path: Hourglass
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hourglass.Hourglass
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Hourglass
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: >-
+          UIInterfaceOrientationPortrait
+          UIInterfaceOrientationLandscapeLeft
+          UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: >-
+          UIInterfaceOrientationPortrait
+          UIInterfaceOrientationPortraitUpsideDown
+          UIInterfaceOrientationLandscapeLeft
+          UIInterfaceOrientationLandscapeRight
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+
+  HourglassTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: HourglassTests
+    dependencies:
+      - target: Hourglass
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.hourglass.HourglassTests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Hourglass:
+    build:
+      targets:
+        Hourglass: all
+    test:
+      gatherCoverageData: true
+      targets:
+        - HourglassTests

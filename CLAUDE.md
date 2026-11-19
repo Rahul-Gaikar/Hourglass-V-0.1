@@ -8,7 +8,7 @@ when a decision is made, record it here in the same commit as the change.
 
 ## 1. Project
 
-**Hourglass (v0.1)** — early stage. The repository currently contains only this file and `README.md`.
+**Hourglass (v0.1)** — early stage. A native iOS app (SwiftUI); the project is scaffolded but the product itself is not yet defined.
 
 > TODO (team): fill in the sections below as soon as they're decided. Claude must not invent
 > answers to anything marked TODO — ask instead.
@@ -29,24 +29,41 @@ when a decision is made, record it here in the same commit as the change.
 
 TODO — record each choice with a one-line reason in the decision log (§7).
 
-- Language / framework: TODO
-- Database: TODO
-- Auth: TODO
-- Hosting / deploy: TODO
-- Package manager: TODO
+- Platform: **native iOS**, minimum iOS 17.0, iPhone + iPad (template default — revisit).
+- Language / framework: **Swift 6** (strict concurrency) + **SwiftUI**.
+- Project generation: **XcodeGen** — `project.yml` is the source of truth; `Hourglass.xcodeproj` is generated and git-ignored.
+- Tests: **Swift Testing** (`HourglassTests` target, hosted in the app).
+- Lint / format: **swift-format** (ships with Xcode 16+; config in `.swift-format`).
+- CI: **GitHub Actions** on `macos-15` — lint, generate, build, test on every push.
+- Package manager: **Swift Package Manager** (declared in `project.yml` when needed).
+- Database: TODO (SwiftData proposed for on-device storage).
+- Auth / backend: TODO (none proposed for v0.1).
+- Distribution: TestFlight → App Store. Needs an Apple Developer account; bundle ID prefix `app.hourglass` is a placeholder (TODO: confirm).
+
+**Layout**
+```
+project.yml            # XcodeGen spec (targets, settings, schemes)
+Hourglass/App/         # app entry point and root view
+Hourglass/Resources/   # asset catalog
+HourglassTests/        # unit tests (Swift Testing)
+.github/workflows/     # CI
+```
 
 ## 4. Commands
 
-TODO — add once the project is scaffolded. Keep this list accurate; Claude uses it to verify work.
+Keep this list accurate; Claude uses it to verify work. All require macOS with Xcode 16+.
 
 ```bash
-# install:   TODO
-# dev:       TODO
-# test:      TODO
-# lint:      TODO
-# typecheck: TODO
-# build:     TODO
+# install:   brew install xcodegen
+# generate:  xcodegen generate            # after every pull or project.yml edit
+# dev:       open Hourglass.xcodeproj     # then Run (⌘R) on a simulator
+# lint:      xcrun swift-format lint --strict --recursive Hourglass HourglassTests
+# format:    xcrun swift-format format --in-place --recursive Hourglass HourglassTests
+# test:      xcodebuild test -project Hourglass.xcodeproj -scheme Hourglass -destination 'platform=iOS Simulator,name=<an installed iPhone>'
+# build:     same as test, with `build` instead of `test`
 ```
+
+Typecheck happens as part of build/test (Swift compiler).
 
 ## 5. How we work together
 
@@ -113,8 +130,12 @@ Applies to all code, whether written by a person or by Claude.
 
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
+- 2026-11-19 — Generate the Xcode project with XcodeGen and don't commit `.xcodeproj` — avoids `project.pbxproj` merge conflicts with two people pushing to `main`.
+- 2026-11-19 — Native iOS with SwiftUI + Swift 6, min iOS 17 — native feel, least code, SwiftData available on 17+.
 - 2026-11-19 — Work directly on `main`; shared CLAUDE.md as the single source of project context — keep collaboration simple for a two-person team.
 
 ## 8. Gotchas / notes
 
-_Nothing yet. Add surprises, environment quirks and "don't do X because Y" here._
+- Never edit `Hourglass.xcodeproj` settings by hand — they're lost on the next `xcodegen generate`. Change `project.yml` instead. New files under `Hourglass/` are picked up automatically after regenerating.
+- Claude cloud sessions run on Linux: they can write Swift but can't build or run it. CI (macOS runner) is the check for that work.
+- Signing: set `DEVELOPMENT_TEAM` in `project.yml` once we have the team ID (it isn't a secret).
