@@ -7,6 +7,11 @@ struct Gravity: Equatable, Sendable {
     var x: Double
     var y: Double
 
+    /// The same gravity seen from a frame turned 180° (when the hourglass is drawn upside down).
+    var turnedOver: Gravity {
+        Gravity(x: -x, y: -y)
+    }
+
     /// Angle of a level liquid surface in screen space, in radians.
     /// 0 when the phone is upright; negative when the right edge is tipped down (the surface rises on the right).
     var surfaceAngle: Double {

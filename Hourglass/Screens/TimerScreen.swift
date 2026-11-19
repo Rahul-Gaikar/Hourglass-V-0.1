@@ -1,10 +1,15 @@
 import SwiftUI
 
 /// The hourglass fills the display, with the time and controls floating on top in Liquid Glass.
+/// Turning the phone over starts a session; the whole screen turns with it so it stays readable.
 struct TimerScreen: View {
+    /// How often to check for a flip. Well above human flipping speed, far below the frame rate.
+    private static let flipCheckInterval = Duration.milliseconds(50)
+
     @State private var model = TimerModel()
     @State private var simulation = LiquidSimulation()
     @State private var motion = MotionProvider()
+    @State private var flipDetector = FlipDetector()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -12,10 +17,10 @@ struct TimerScreen: View {
         TimelineView(.animation) { context in
             let now = context.date
             let timer = model.timer
-            let frame = simulation.advance(to: now, gravity: motion.gravity, reduceMotion: reduceMotion)
+            let frame = simulation.advance(to: now, gravity: orientedGravity, reduceMotion: reduceMotion)
             ZStack {
                 HourglassView(
-                    progress: timer.progress(at: now),
+                    progress: timer.liquidProgress(at: now),
                     isFlowing: timer.isRunning,
                     palette: .forPhase(timer.phase),
                     frame: frame
@@ -30,9 +35,12 @@ struct TimerScreen: View {
                 }
                 .padding(.vertical, 24)
             }
+            .rotationEffect(.degrees(model.isTurnedOver ? 180 : 0))
         }
         .background(background)
         .preferredColorScheme(.dark)
+        .sensoryFeedback(.start, trigger: model.isTurnedOver)
+        .task { await watchForFlips() }
         .onAppear { motion.start() }
         .onDisappear { motion.stop() }
         .onChange(of: scenePhase) { _, phase in
@@ -42,6 +50,21 @@ struct TimerScreen: View {
             } else {
                 motion.stop()
             }
+        }
+    }
+
+    /// Gravity relative to the hourglass as it's currently drawn.
+    private var orientedGravity: Gravity {
+        model.isTurnedOver ? motion.gravity.turnedOver : motion.gravity
+    }
+
+    /// Runs outside view updates, so starting the timer here doesn't mutate state mid-render.
+    private func watchForFlips() async {
+        while !Task.isCancelled {
+            if flipDetector.update(gravity: orientedGravity, at: .now) {
+                model.flip()
+            }
+            try? await Task.sleep(for: Self.flipCheckInterval)
         }
     }
 
@@ -64,10 +87,15 @@ struct TimerScreen: View {
                 .font(.system(size: 60, weight: .thin, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.white)
+            if timer.state == .idle {
+                Label("Flip to start", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
         .padding(.horizontal, 28)
         .padding(.vertical, 12)
-        .glassEffect(.regular, in: Capsule())
+        .glassEffect(.regular, in: .rect(cornerRadius: 32))
         .accessibilityElement(children: .combine)
     }
 

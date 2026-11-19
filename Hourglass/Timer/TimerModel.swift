@@ -6,6 +6,8 @@ import Observation
 @Observable
 final class TimerModel {
     private(set) var timer: PomodoroTimer
+    /// Whether the hourglass is currently drawn upside down, because the phone was turned over to start.
+    private(set) var isTurnedOver = false
     @ObservationIgnored private var completionTask: Task<Void, Never>?
 
     init(timer: PomodoroTimer = PomodoroTimer()) {
@@ -19,6 +21,16 @@ final class TimerModel {
         } else {
             timer.start(at: now)
         }
+        scheduleCompletion(from: now)
+    }
+
+    /// Turning the phone over starts the next session, like turning over a real hourglass.
+    /// The drained bottom bulb becomes the full top one. Ignored unless idle, so a fumble can't
+    /// restart a session in progress.
+    func flip(at now: Date = .now) {
+        guard timer.state == .idle else { return }
+        isTurnedOver.toggle()
+        timer.start(at: now)
         scheduleCompletion(from: now)
     }
 
