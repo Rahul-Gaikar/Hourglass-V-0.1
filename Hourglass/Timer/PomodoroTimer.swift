@@ -90,19 +90,23 @@ struct PomodoroTimer: Codable, Equatable, Sendable {
         return completed
     }
 
-    private mutating func moveToNextPhase() {
+    /// The phase that will follow the current one when it completes.
+    var nextPhase: SessionPhase {
         switch phase {
         case .focus:
-            completedFocusSessions += 1
-            if completedFocusSessions >= settings.effectiveSessionsBeforeLongBreak {
-                completedFocusSessions = 0
-                phase = .longBreak
-            } else {
-                phase = .shortBreak
-            }
+            let earnsLongBreak = completedFocusSessions + 1 >= settings.effectiveSessionsBeforeLongBreak
+            return earnsLongBreak ? .longBreak : .shortBreak
         case .shortBreak, .longBreak:
-            phase = .focus
+            return .focus
         }
+    }
+
+    private mutating func moveToNextPhase() {
+        let next = nextPhase
+        if phase == .focus {
+            completedFocusSessions = next == .longBreak ? 0 : completedFocusSessions + 1
+        }
+        phase = next
         state = .idle
     }
 }

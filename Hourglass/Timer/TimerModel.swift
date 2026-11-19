@@ -15,10 +15,13 @@ final class TimerModel {
     private(set) var isTurnedOver = false
 
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let notifier: any SessionNotifying
     @ObservationIgnored private var completionTask: Task<Void, Never>?
 
-    init(defaults: UserDefaults = .standard) {
+    /// `notifier` defaults to real local notifications; tests pass a fake.
+    init(defaults: UserDefaults = .standard, notifier: (any SessionNotifying)? = nil) {
         self.defaults = defaults
+        self.notifier = notifier ?? SessionNotifier()
         let settings = Self.loadSettings(from: defaults)
         self.settings = settings
         self.timer = PomodoroTimer(settings: settings)
@@ -44,6 +47,7 @@ final class TimerModel {
             timer.start(at: now)
         }
         scheduleCompletion(from: now)
+        syncNotification()
     }
 
     /// Turning the phone over starts the next session, like turning over a real hourglass.
@@ -54,12 +58,14 @@ final class TimerModel {
         isTurnedOver.toggle()
         timer.start(at: now)
         scheduleCompletion(from: now)
+        syncNotification()
     }
 
     func reset() {
         timer.reset()
         completionTask?.cancel()
         applySettingsIfIdle()
+        syncNotification()
     }
 
     /// Advances the phase if it has ended. Call when the app returns to the foreground.
@@ -67,6 +73,19 @@ final class TimerModel {
         timer.completeIfFinished(at: now)
         applySettingsIfIdle()
         scheduleCompletion(from: now)
+        syncNotification()
+    }
+
+    /// Keeps the "session ended" alert matching the timer: pending while running, gone otherwise.
+    /// When a session ends with the app open, this cancels the alert so it doesn't pop up over the hourglass.
+    private func syncNotification() {
+        guard case .running(let endDate) = timer.state else {
+            notifier.cancelSessionEnd()
+            return
+        }
+        // The next phase's length comes from `settings`, which is what the timer will use by then.
+        let alert = SessionAlert(finishing: timer.phase, next: timer.nextPhase, settings: settings)
+        notifier.scheduleSessionEnd(at: endDate, alert: alert)
     }
 
     private func applySettingsIfIdle() {

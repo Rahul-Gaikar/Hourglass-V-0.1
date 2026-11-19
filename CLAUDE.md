@@ -56,6 +56,7 @@ Hourglass/Screens/     # full screens and panels (TimerScreen, DurationsPanel)
 Hourglass/Timer/       # pomodoro state machine + settings (pure, no UI)
 Hourglass/Liquid/      # hourglass geometry, slosh physics, Canvas renderer, glass view
 Hourglass/Motion/      # Core Motion gravity reader, flip detection
+Hourglass/Notifications/ # end-of-session local notification (behind a protocol for tests)
 Hourglass/Resources/   # asset catalog
 HourglassTests/        # unit tests (Swift Testing)
 .github/workflows/     # CI
@@ -142,6 +143,7 @@ Applies to all code, whether written by a person or by Claude.
 
 Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
+- 2026-11-19 — End-of-session alert: one local notification scheduled for the session's end date whenever the timer runs, cancelled on pause/reset or when the session ends with the app open (no banner over the hourglass). Permission is asked on the first start, not at launch; refusal just means no alerts.
 - 2026-11-19 — Custom durations: edited in a glass panel drawn inside the (rotatable) timer screen rather than a sheet, so it reads correctly after a flip; saved as JSON in UserDefaults; changes made mid-session apply from the next session so the liquid never jumps.
 - 2026-11-19 — Flip to start: an idle hourglass shows drained; turning the phone over (held ~0.3 s) starts the next session and the UI rotates 180° with it. Flips while running/paused are ignored. iPhone locked to portrait so system rotation doesn't fight the physical flip.
 - 2026-11-19 — Generate the Xcode project with XcodeGen and don't commit `.xcodeproj` — avoids `project.pbxproj` merge conflicts with two people pushing to `main`.
