@@ -16,7 +16,7 @@ struct LiveActivityStateTests {
         let state = HourglassActivityAttributes.ContentState(timer: timer, now: start.addingTimeInterval(60))
         #expect(state?.startDate == start)
         #expect(state?.endDate == start.addingTimeInterval(25 * 60))
-        #expect(state?.phaseDuration == 25 * 60)
+        #expect(state?.phaseDuration == TimeInterval(25 * 60))
         #expect(state?.isPaused == false)
     }
 
@@ -26,7 +26,7 @@ struct LiveActivityStateTests {
         timer.pause(at: start.addingTimeInterval(10 * 60))
         let later = start.addingTimeInterval(60 * 60)
         let state = HourglassActivityAttributes.ContentState(timer: timer, now: later)
-        #expect(state?.pausedRemaining == 15 * 60)
+        #expect(state?.pausedRemaining == TimeInterval(15 * 60))
         #expect(state?.endDate == later.addingTimeInterval(15 * 60))
     }
 
@@ -37,6 +37,6 @@ struct LiveActivityStateTests {
         timer.start(at: start.addingTimeInterval(25 * 60))
         let state = HourglassActivityAttributes.ContentState(timer: timer, now: start.addingTimeInterval(25 * 60))
         #expect(state?.phase == .shortBreak)
-        #expect(state?.phaseDuration == 5 * 60)
+        #expect(state?.phaseDuration == TimeInterval(5 * 60))
     }
 }

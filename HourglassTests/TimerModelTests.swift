@@ -233,7 +233,7 @@ struct TimerModelLiveActivityTests {
         let model = makeModel(liveActivity: activity)
         model.toggle(at: start)
         model.toggle(at: start.addingTimeInterval(5 * 60))
-        #expect((activity.shown.last ?? nil)?.pausedRemaining == 20 * 60)
+        #expect((activity.shown.last ?? nil)?.pausedRemaining == TimeInterval(20 * 60))
         model.reset()
     }
 
