@@ -39,7 +39,7 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Build and test
+      - name: Build
         run: |
           # Pick any available iOS 26+ iPhone simulator so CI doesn't break when the runner image changes.
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c '
@@ -53,25 +53,50 @@ jobs:
           ')
           echo "Using simulator $DEVICE_ID"
           echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcodebuild test \
+          xcodebuild build-for-testing \
             -project Hourglass.xcodeproj \
             -scheme Hourglass \
             -destination "id=$DEVICE_ID" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Screenshot the app
+      # Launch the app on its own before testing. If it hangs on launch, the test run would sit silent
+      # until the job times out; this shows where its main thread is stuck instead.
+      - name: Launch the app and screenshot it
+        timeout-minutes: 8
         run: |
           xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/Build/Products/Debug-iphonesimulator/Hourglass.app
-          xcrun simctl launch "$DEVICE_ID" app.hourglass.Hourglass
-          sleep 5
+          # Prints "app.hourglass.Hourglass: <pid>".
+          PID=$(xcrun simctl launch "$DEVICE_ID" app.hourglass.Hourglass | awk '{print $2}')
+          echo "Launched with pid $PID"
+          sleep 15
           xcrun simctl io "$DEVICE_ID" screenshot hourglass.png
+          if kill -0 "$PID" 2>/dev/null; then
+            echo "Main thread after 15 s (a healthy app is idle in its run loop):"
+            sample "$PID" 2 -mayDie 2>&1 | sed -n '/Call graph/,/Total number in stack/p' | head -60
+          else
+            echo "::error::The app exited within 15 s of launch"
+            exit 1
+          fi
+          xcrun simctl terminate "$DEVICE_ID" app.hourglass.Hourglass || true
 
       - name: Upload screenshot
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hourglass-screenshot
           path: hourglass.png
           if-no-files-found: warn
+
+      - name: Test
+        # Well above a normal run (~3 min), so a hang fails here rather than at the job limit.
+        timeout-minutes: 15
+        run: |
+          xcodebuild test-without-building \
+            -project Hourglass.xcodeproj \
+            -scheme Hourglass \
+            -destination "id=$DEVICE_ID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
