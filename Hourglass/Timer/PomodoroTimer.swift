@@ -5,6 +5,8 @@ struct CompletedPhase: Equatable, Sendable {
     let phase: SessionPhase
     /// When the phase actually ended, which can be well before the app noticed (e.g. while suspended).
     let endedAt: Date
+    /// How long the phase was, in seconds.
+    let duration: TimeInterval
 }
 
 /// The pomodoro state machine.
@@ -85,7 +87,7 @@ struct PomodoroTimer: Codable, Equatable, Sendable {
     @discardableResult
     mutating func completeIfFinished(at now: Date) -> CompletedPhase? {
         guard case .running(let endDate) = state, now >= endDate else { return nil }
-        let completed = CompletedPhase(phase: phase, endedAt: endDate)
+        let completed = CompletedPhase(phase: phase, endedAt: endDate, duration: phaseDuration)
         moveToNextPhase()
         return completed
     }

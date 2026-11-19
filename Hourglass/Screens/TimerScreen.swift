@@ -6,19 +6,30 @@ struct TimerScreen: View {
     /// How often to check for a flip. Well above human flipping speed, far below the frame rate.
     private static let flipCheckInterval = Duration.milliseconds(50)
 
-    @State private var model = TimerModel()
+    @State private var model: TimerModel
     @State private var simulation = LiquidSimulation()
     @State private var motion = MotionProvider()
     @State private var flipDetector = FlipDetector()
     @State private var isEditingDurations = false
+    @State private var isShowingHistory = false
     /// The panel edits this copy; each change is handed to the model, which saves and applies it.
     @State private var draftSettings = PomodoroSettings()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// `history` receives completed sessions; pass `nil` (e.g. in previews) to keep none.
+    init(history: (any SessionRecording)? = nil) {
+        _model = State(initialValue: TimerModel(history: history))
+    }
+
     var body: some View {
         ZStack {
             liveHourglass
+            bottomBar
+            if isShowingHistory {
+                HistoryPanel(onDone: { isShowingHistory = false })
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
             if isEditingDurations {
                 DurationsPanel(
                     settings: $draftSettings,
@@ -31,6 +42,7 @@ struct TimerScreen: View {
         // Turn everything, panel included, so it reads the right way up after a flip.
         .rotationEffect(.degrees(model.isTurnedOver ? 180 : 0))
         .animation(.spring(duration: 0.35), value: isEditingDurations)
+        .animation(.spring(duration: 0.35), value: isShowingHistory)
         .background(background)
         .preferredColorScheme(.dark)
         .sensoryFeedback(.start, trigger: model.isTurnedOver)
@@ -50,7 +62,8 @@ struct TimerScreen: View {
         }
     }
 
-    /// The per-frame part of the screen: liquid, time and controls.
+    /// The per-frame part of the screen: liquid and time. Controls live outside it (`bottomBar`)
+    /// so they, and the history query behind the today button, aren't rebuilt every frame.
     private var liveHourglass: some View {
         TimelineView(.animation) { context in
             let now = context.date
@@ -69,11 +82,22 @@ struct TimerScreen: View {
                 VStack {
                     header(timer: timer, now: now)
                     Spacer()
-                    controls(timer: timer)
                 }
                 .padding(.vertical, 24)
             }
         }
+    }
+
+    private var bottomBar: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            TodayHistoryButton {
+                isEditingDurations = false
+                isShowingHistory.toggle()
+            }
+            controls(timer: model.timer)
+        }
+        .padding(.vertical, 24)
     }
 
     /// Gravity relative to the hourglass as it's currently drawn.
@@ -128,6 +152,7 @@ struct TimerScreen: View {
                 if !isEditingDurations {
                     draftSettings = model.settings
                 }
+                isShowingHistory = false
                 isEditingDurations.toggle()
             } label: {
                 Image(systemName: "timer")
@@ -167,4 +192,5 @@ struct TimerScreen: View {
 
 #Preview {
     TimerScreen()
+        .modelContainer(for: FocusSession.self, inMemory: true)
 }

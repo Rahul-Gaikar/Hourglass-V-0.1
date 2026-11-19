@@ -16,13 +16,25 @@ private func makeTestDefaults() -> UserDefaults {
 private func makeModel(
     defaults: UserDefaults? = nil,
     notifier: FakeNotifier? = nil,
-    liveActivity: FakeLiveActivity? = nil
+    liveActivity: FakeLiveActivity? = nil,
+    history: FakeHistory? = nil
 ) -> TimerModel {
     TimerModel(
         defaults: defaults ?? makeTestDefaults(),
         notifier: notifier ?? FakeNotifier(),
-        liveActivity: liveActivity ?? FakeLiveActivity()
+        liveActivity: liveActivity ?? FakeLiveActivity(),
+        history: history
     )
+}
+
+/// Records completed phases handed to history.
+@MainActor
+final class FakeHistory: SessionRecording {
+    private(set) var recorded: [CompletedPhase] = []
+
+    func record(_ completed: CompletedPhase) {
+        recorded.append(completed)
+    }
 }
 
 /// Records what the model shows in the Live Activity.
@@ -247,5 +259,30 @@ struct TimerModelLiveActivityTests {
         model.toggle(at: start)
         model.refresh(at: start.addingTimeInterval(25 * 60))
         #expect(activity.shown.last == .some(nil))
+    }
+}
+
+@MainActor
+struct TimerModelHistoryTests {
+    private let start = Date(timeIntervalSinceReferenceDate: 1_000_000)
+
+    @Test func completingASessionRecordsItWithItsRealEndTime() {
+        let history = FakeHistory()
+        let model = makeModel(history: history)
+        model.flip(at: start)
+        // Noticed an hour late, e.g. on returning to the app.
+        model.refresh(at: start.addingTimeInterval(25 * 60 + 60 * 60))
+
+        let expected = CompletedPhase(phase: .focus, endedAt: start.addingTimeInterval(25 * 60), duration: 25 * 60)
+        #expect(history.recorded == [expected])
+    }
+
+    @Test func resetOrUnfinishedSessionsAreNotRecorded() {
+        let history = FakeHistory()
+        let model = makeModel(history: history)
+        model.flip(at: start)
+        model.refresh(at: start.addingTimeInterval(10 * 60))
+        model.reset()
+        #expect(history.recorded.isEmpty)
     }
 }

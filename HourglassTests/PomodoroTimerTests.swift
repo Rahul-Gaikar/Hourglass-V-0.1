@@ -78,7 +78,7 @@ struct PomodoroTimerTests {
 
         // The app may only notice long after the phase ended; the real end time is reported.
         let completed = timer.completeIfFinished(at: end.addingTimeInterval(60 * 60))
-        #expect(completed == CompletedPhase(phase: .focus, endedAt: end))
+        #expect(completed == CompletedPhase(phase: .focus, endedAt: end, duration: 25 * 60))
         #expect(timer.phase == .shortBreak)
         #expect(timer.state == .idle)
         #expect(timer.completeIfFinished(at: end.addingTimeInterval(60 * 60)) == nil)

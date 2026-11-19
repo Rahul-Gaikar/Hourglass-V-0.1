@@ -17,15 +17,19 @@ final class TimerModel {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let notifier: any SessionNotifying
     @ObservationIgnored private let liveActivity: any SessionActivityControlling
+    @ObservationIgnored private let history: (any SessionRecording)?
     @ObservationIgnored private var completionTask: Task<Void, Never>?
 
     /// `notifier` and `liveActivity` default to the real system services; tests pass fakes.
+    /// Completed sessions are recorded in `history` when one is given (previews run without).
     init(
         defaults: UserDefaults = .standard,
         notifier: (any SessionNotifying)? = nil,
-        liveActivity: (any SessionActivityControlling)? = nil
+        liveActivity: (any SessionActivityControlling)? = nil,
+        history: (any SessionRecording)? = nil
     ) {
         self.defaults = defaults
+        self.history = history
         self.notifier = notifier ?? SessionNotifier()
         self.liveActivity = liveActivity ?? SessionActivityController()
         let settings = Self.loadSettings(from: defaults)
@@ -76,7 +80,9 @@ final class TimerModel {
 
     /// Advances the phase if it has ended. Call when the app returns to the foreground.
     func refresh(at now: Date = .now) {
-        timer.completeIfFinished(at: now)
+        if let completed = timer.completeIfFinished(at: now) {
+            history?.record(completed)
+        }
         applySettingsIfIdle()
         scheduleCompletion(from: now)
         syncOutsideViews(at: now)
