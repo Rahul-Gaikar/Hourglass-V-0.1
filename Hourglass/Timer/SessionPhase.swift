@@ -7,4 +7,15 @@ enum SessionPhase: String, Codable, CaseIterable, Sendable {
     var isBreak: Bool {
         self != .focus
     }
+
+    var title: String {
+        switch self {
+        case .focus:
+            "Focus"
+        case .shortBreak:
+            "Short break"
+        case .longBreak:
+            "Long break"
+        }
+    }
 }

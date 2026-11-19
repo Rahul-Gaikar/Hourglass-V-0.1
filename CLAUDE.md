@@ -51,7 +51,11 @@ TODO — record each choice with a one-line reason in the decision log (§7).
 **Layout**
 ```
 project.yml            # XcodeGen spec (targets, settings, schemes)
-Hourglass/App/         # app entry point and root view
+Hourglass/App/         # app entry point
+Hourglass/Screens/     # full screens (TimerScreen)
+Hourglass/Timer/       # pomodoro state machine + settings (pure, no UI)
+Hourglass/Liquid/      # hourglass geometry, slosh physics, Canvas renderer, glass view
+Hourglass/Motion/      # Core Motion gravity reader
 Hourglass/Resources/   # asset catalog
 HourglassTests/        # unit tests (Swift Testing)
 .github/workflows/     # CI
@@ -148,4 +152,9 @@ Newest first. Format: `YYYY-MM-DD — decision — reason — who`.
 
 - Never edit `Hourglass.xcodeproj` settings by hand — they're lost on the next `xcodegen generate`. Change `project.yml` instead. New files under `Hourglass/` are picked up automatically after regenerating.
 - Claude cloud sessions run on Linux: they can write Swift but can't build or run it. CI (macOS runner) is the check for that work.
+- Keep logic out of views: geometry, physics and timer code are plain value types with no actor
+  isolation so they're unit-testable and can run inside `Canvas`. Views only wire them together.
+- CI uploads a Simulator screenshot (`hourglass-screenshot` artifact) — the quickest way to eyeball
+  UI changes made from a Claude cloud session. The Simulator has no motion sensors, so tilt can only
+  be judged on a real device.
 - Signing: set `DEVELOPMENT_TEAM` in `project.yml` once we have the team ID (it isn't a secret).
